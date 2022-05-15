@@ -126,17 +126,17 @@ cleanup_gshare() {
 }
 
 ////////Tournament Predictor////////////
-int tournament_gp_len = 12;
-int tournament_choice_len = 12;
-int tournament_lht_len = 12;
-int tournament_lp_len = 12;
+int tournament_gp_len = 16;
+int tournament_choice_len = 16;
+int tournament_lht_len = 13;
+int tournament_lp_len = 13;
 
 void init_tournament(){
   int bht_gp_entries = 1 << tournament_gp_len;
   tournament_bht_gp = (uint8_t*)malloc(bht_gp_entries * sizeof(uint8_t));
   int i = 0;
   for(i = 0; i< bht_gp_entries; i++){
-    tournament_bht_gp[i] = WT;
+    tournament_bht_gp[i] = WN;
     //printf("Tournament BHT GP %d : %d \n",i,tournament_bht_gp[i]);
   }
   ghistory = 0;
@@ -158,7 +158,7 @@ void init_tournament(){
   int bht_lp_entries = 1 << tournament_lp_len;
   tournament_bht_lp = (uint8_t*)malloc(bht_lp_entries * sizeof(uint8_t));
   for(i = 0; i< bht_lp_entries; i++){
-    tournament_bht_lp[i] = WT;
+    tournament_bht_lp[i] = WN;
     //printf("Tournament BHT LP %d : %d \n",i,tournament_bht_lp[i]);
   }
 
@@ -174,51 +174,73 @@ uint8_t tournament_predict(uint32_t pc){
   uint32_t lp_pc_lower_bits = pc & (lht_entries-1);
   uint16_t index_pht = tournament_lht[lp_pc_lower_bits];
 
-  int cp_result;
-
-
-  switch(tournament_ct[index_ght_ct]){
+  uint8_t lp_predict;
+  switch(tournament_bht_lp[index_pht]){
     case WN:
-      cp_result = 0;
+      lp_predict = NOTTAKEN;
       break;
     case SN:
-      cp_result = 0;
+      lp_predict = NOTTAKEN;
       break;
     case WT:
-      cp_result = 1;
+      lp_predict = TAKEN;
       break;
     case ST:
-      cp_result = 1;
+      lp_predict = TAKEN;
       break;
     default:
-      printf("Warning: PREDICT : Undefined state of entry in Tournament Choice Table %d %d!\n", index_ght_ct, tournament_ct[index_ght_ct]);
-      cp_result = 0;
+      printf("Warning: PREDICT : Undefined state of entry in Tournament Local BHT! %d %d \n",index_pht,tournament_bht_lp[index_pht]);
+      lp_predict = NOTTAKEN;
   }
-
-  uint8_t bp_result;
-
-  if(cp_result == 0){
-    bp_result = tournament_bht_lp[index_pht];
-  }
-  else {
-    bp_result = tournament_bht_gp[index_ght_ct];
-  }
-  switch(bp_result){
+  
+  uint8_t gp_predict;
+  switch(tournament_bht_gp[index_ght_ct]){
     case WN:
-      return NOTTAKEN;
+      gp_predict = NOTTAKEN;
+      break;
     case SN:
-      return NOTTAKEN;
+      gp_predict = NOTTAKEN;
+      break;
     case WT:
-      return TAKEN;
+      gp_predict = TAKEN;
+      break;
     case ST:
-      return TAKEN;
+      gp_predict = TAKEN;
+      break;
     default:
-      if(cp_result == 0)
-        printf("Warning: PREDICT : Undefined state of entry in Tournament Local BHT! %d %d \n",index_pht,tournament_bht_lp[index_pht]);
-      else
-        printf("Warning: PREDICT : Undefined state of entry in Tournament Global BHT! %d %d \n",index_ght_ct,tournament_bht_gp[index_ght_ct]);
-      return NOTTAKEN;
+      printf("Warning: PREDICT : Undefined state of entry in Tournament Globql BHT! %d %d \n",index_ght_ct,tournament_bht_gp[index_ght_ct]);
+      gp_predict = NOTTAKEN;
   }
+
+  if(gp_predict == lp_predict)
+    return gp_predict;
+  else{
+    uint8_t ct_predict;
+    switch(tournament_ct[index_ght_ct]){
+    case WN:
+      ct_predict = 0;
+      break;
+    case SN:
+      ct_predict = 0;
+      break;
+    case WT:
+      ct_predict = 1;
+      break;
+    case ST:
+      ct_predict = 1;
+      break;
+    default:
+      printf("Warning: PREDICT : Undefined state of entry in Choice Table! %d %d \n",index_ght_ct,tournament_ct[index_ght_ct]);
+      ct_predict = 1;
+    }
+  
+    if(ct_predict == 0)
+      return lp_predict;
+    else
+      return gp_predict;
+  }
+
+
 }
 
 void train_tournament(uint32_t pc, uint8_t outcome){
@@ -231,57 +253,74 @@ void train_tournament(uint32_t pc, uint8_t outcome){
   uint32_t lp_pc_lower_bits = pc & (lht_entries-1);
   uint16_t index_pht = tournament_lht[lp_pc_lower_bits];
 
-  int cp_result;
-
-  switch(tournament_ct[index_ght_ct]){
+  uint8_t lp_predict;
+  switch(tournament_bht_lp[index_pht]){
     case WN:
-      cp_result = 0;
+      lp_predict = NOTTAKEN;
       break;
     case SN:
-      cp_result = 0;
+      lp_predict = NOTTAKEN;
       break;
     case WT:
-      cp_result = 1;
+      lp_predict = TAKEN;
       break;
     case ST:
-      cp_result = 1;
+      lp_predict = TAKEN;
       break;
     default:
-      printf("Warning: Undefined state of entry in Tournament Choice Table!\n");
-      cp_result = 0;
+      printf("Warning: PREDICT : Undefined state of entry in Tournament Local BHT! %d %d \n",index_pht,tournament_bht_lp[index_pht]);
+      lp_predict = NOTTAKEN;
+  }
+  
+  uint8_t gp_predict;
+  switch(tournament_bht_gp[index_ght_ct]){
+    case WN:
+      gp_predict = NOTTAKEN;
+      break;
+    case SN:
+      gp_predict = NOTTAKEN;
+      break;
+    case WT:
+      gp_predict = TAKEN;
+      break;
+    case ST:
+      gp_predict = TAKEN;
+      break;
+    default:
+      printf("Warning: PREDICT : Undefined state of entry in Tournament Globql BHT! %d %d \n",index_ght_ct,tournament_bht_gp[index_ght_ct]);
+      gp_predict = NOTTAKEN;
   }
 
+  uint8_t ct_predict;
   uint8_t bp_result;
-  bool mispredict = true;
 
-  if(cp_result == 0){
-    bp_result = tournament_bht_lp[index_pht];
-  }
-  else {
-    bp_result = tournament_bht_gp[index_ght_ct];
-  }
-  if((bp_result == WN || bp_result == SN) && (outcome == NOTTAKEN))
-    mispredict = false;
-  else if((bp_result == WT || bp_result == ST) && (outcome == TAKEN))
-    mispredict = false;
-/*
-  switch(bp_result){
+  if(gp_predict == lp_predict)
+    bp_result = gp_predict;
+  else{
+    switch(tournament_ct[index_ght_ct]){
     case WN:
-      return NOTTAKEN;
+      ct_predict = 0;
+      break;
     case SN:
-      return NOTTAKEN;
+      ct_predict = 0;
+      break;
     case WT:
-      return TAKEN;
+      ct_predict = 1;
+      break;
     case ST:
-      return TAKEN;
+      ct_predict = 1;
+      break;
     default:
-      if(cp_result == 0)
-        printf("Warning: Undefined state of entry in Tournament Local BHT!\n");
-      else
-        printf("Warning: Undefined state of entry in Tournament Global BHT!\n");
-      return NOTTAKEN;
+      printf("Warning: PREDICT : Undefined state of entry in Choice Table! %d %d \n",index_ght_ct,tournament_ct[index_ght_ct]);
+      ct_predict = 1;
+    }
+  
+    if(ct_predict == 0)
+      bp_result = lp_predict;
+    else
+      bp_result = gp_predict;
   }
-*/
+  
   bool lp_correct = false;
   bool gp_correct = false; 
   if((tournament_bht_lp[index_pht] == WN || tournament_bht_lp[index_pht] == SN) && (outcome == NOTTAKEN))
@@ -294,26 +333,34 @@ void train_tournament(uint32_t pc, uint8_t outcome){
   else if((tournament_bht_gp[index_ght_ct] == WT || tournament_bht_gp[index_ght_ct] == ST) && (outcome == TAKEN))
     lp_correct = true;
 
-  if(mispredict){
-    if(cp_result == 0 && !lp_correct && gp_correct || cp_result == 1 && lp_correct && !gp_correct){
-      switch(tournament_ct[index_ght_ct]){
+    if(ct_predict == 0 && !lp_correct && gp_correct || ct_predict == 1 && lp_correct && !gp_correct){
+      uint8_t ct_prediction = tournament_ct[index_ght_ct];
+      switch((gp_predict << 1)| lp_predict){
       case WN:
-        tournament_ct[index_ght_ct] = WT;
+        if(lp_correct)
+          if(ct_prediction != 0)
+            tournament_ct[index_ght_ct] -= 1;
+        else
+          if(ct_prediction != 3)
+            tournament_ct[index_ght_ct] += 1; 
         break;
       case SN:
-        tournament_ct[index_ght_ct] = WN;
         break;
       case WT:
-        tournament_ct[index_ght_ct] = WN;
+        if(lp_correct)
+          if(ct_prediction != 0)
+            tournament_ct[index_ght_ct] -= 1;
+        else
+          if(ct_prediction != 3)
+            tournament_ct[index_ght_ct] += 1; 
         break;
       case ST:
-        tournament_ct[index_ght_ct] = WT;
         break;
       default:
         printf("Warning: Undefined state of entry in Choice table!\n");
       }
     }
-    if(!lp_correct){
+
       switch(tournament_bht_lp[index_pht]){
       case WN:
         tournament_bht_lp[index_pht] = (outcome==TAKEN)?WT:SN;
@@ -330,8 +377,7 @@ void train_tournament(uint32_t pc, uint8_t outcome){
       default:
         printf("Warning: Undefined state of entry in LP table!\n");
       }
-    }
-    if(!gp_correct){
+
       switch(tournament_bht_gp[index_ght_ct]){
       case WN:
         tournament_bht_gp[index_ght_ct] = (outcome==TAKEN)?WT:SN;
@@ -348,11 +394,11 @@ void train_tournament(uint32_t pc, uint8_t outcome){
       default:
         printf("Warning: Undefined state of entry in GP table!\n");
       }
-    }
-  }
 
-  ghistory = ((ghistory << 1) | outcome); 
+  ghistory = ((ghistory << 1) | outcome) & (bht_gp_entries - 1); 
   tournament_lht[lp_pc_lower_bits] = ((tournament_lht[lp_pc_lower_bits] << 1) | outcome) & (lht_entries-1);
+
+  //printf("AFTER TRAIN : %x %d %d LP %d %d %d ; GP %d %d %d; LHT %d %x; GH %lu \n",pc,outcome,bp_result,lp_correct,index_pht,tournament_bht_lp[index_pht],gp_correct,index_ght_ct,tournament_bht_gp[index_ght_ct],lp_pc_lower_bits,tournament_ct[lp_pc_lower_bits],ghistory);
 
 }
 
