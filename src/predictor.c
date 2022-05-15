@@ -6,6 +6,7 @@
 //  described in the README                               //
 //========================================================//
 #include <stdio.h>
+#include <stdint.h>
 #include <math.h>
 #include <stdbool.h>
 #include "predictor.h"
@@ -36,9 +37,13 @@ int verbose;
 //------------------------------------//
 
 //
-//TODO: Add your own Branch Predictor data structures here
 //
 //gshare
+int tournament_gp_len = 11;
+int tournament_choice_len = 11;
+int tournament_lht_len = 10;
+int tournament_lp_len = 10;
+
 uint8_t *bht_gshare;
 uint64_t ghistory;
 
@@ -46,6 +51,12 @@ uint8_t *tournament_bht_gp;
 uint8_t *tournament_bht_lp;
 uint16_t *tournament_lht;
 uint8_t *tournament_ct;
+
+int num_perceptrons = 8;
+int perceptron_table_len = 12;
+int perceptron_train_threshold;
+int8_t *perceptron_table;
+
 
 
 //------------------------------------//
@@ -126,10 +137,6 @@ cleanup_gshare() {
 }
 
 ////////Tournament Predictor////////////
-int tournament_gp_len = 16;
-int tournament_choice_len = 16;
-int tournament_lht_len = 13;
-int tournament_lp_len = 13;
 
 void init_tournament(){
   int bht_gp_entries = 1 << tournament_gp_len;
@@ -338,20 +345,20 @@ void train_tournament(uint32_t pc, uint8_t outcome){
       switch((gp_predict << 1)| lp_predict){
       case WN:
         if(lp_correct)
-          if(ct_prediction != 0)
+          if(ct_prediction != SN)
             tournament_ct[index_ght_ct] -= 1;
         else
-          if(ct_prediction != 3)
+          if(ct_prediction != ST)
             tournament_ct[index_ght_ct] += 1; 
         break;
       case SN:
         break;
       case WT:
         if(lp_correct)
-          if(ct_prediction != 0)
+          if(ct_prediction != SN)
             tournament_ct[index_ght_ct] -= 1;
         else
-          if(ct_prediction != 3)
+          if(ct_prediction != ST)
             tournament_ct[index_ght_ct] += 1; 
         break;
       case ST:
@@ -404,6 +411,61 @@ void train_tournament(uint32_t pc, uint8_t outcome){
 
 ///////////////////////////////////////
 
+/////////Perceptron Predictor//////////
+
+void init_perceptron(){
+  int perceptron_table_entries = 1 << perceptron_table_len;
+  perceptron_table = (int8_t*)malloc(num_perceptrons*perceptron_table_entries*sizeof(int8_t));
+  int i=0;
+  for(i=0; i < num_perceptrons*perceptron_table_entries; i=i+1){
+    perceptron_table[i] = 0;
+  }
+  perceptron_train_threshold = 1.93*num_perceptrons + 14;
+  ghistory = 0;
+}
+
+uint8_t perceptron_predict(uint32_t pc){
+  uint32_t perceptron_table_entries = 1 << (perceptron_table_len*num_perceptrons);
+  uint32_t table_index = (pc & (perceptron_table_entries-1)) * num_perceptrons;
+  int y = perceptron_table[table_index];
+  for(int i=1; i<num_perceptrons; i=i+1){
+    y=y+(ghistory & 1<<(i-1))*perceptron_table[table_index+i];
+  }
+  if(y<0)
+    return NOTTAKEN;
+  else
+    return TAKEN;
+}
+
+void train_perceptron(uint32_t pc, uint8_t outcome){
+  uint32_t perceptron_table_entries = 1 << (perceptron_table_len*num_perceptrons);
+  uint32_t table_index = (pc & (perceptron_table_entries-1)) * num_perceptrons;
+  int y = perceptron_table[table_index];
+  for(int i=1; i<num_perceptrons; i=i+1){
+    y=y+(ghistory & 1<<(i-1))*perceptron_table[table_index+i];
+  }
+  uint8_t bp_result;
+  if(y<0)
+    bp_result = NOTTAKEN;
+  else
+    bp_result = TAKEN;
+  
+  bool mispredict = true;
+  if(bp_result == outcome)
+    false;
+  if(mispredict || abs(bp_result) < perceptron_train_threshold){
+    for(int i=1; i<num_perceptrons; i=i+1){
+      if(outcome == (ghistory & 1<<(i-1)))
+        perceptron_table[table_index+i] += 1;
+      else
+        perceptron_table[table_index+i] -= 1;
+    }
+  }
+  
+  ghistory = (ghistory << 1 | outcome) & ((1 << (num_perceptrons-1))-1) ;
+}
+
+///////////////////////////////////////
 
 
 
