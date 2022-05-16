@@ -4,25 +4,25 @@ gcc -g -std=c99 -Werror -c predictor.c
 gcc -g -std=c99 -Werror -lm -o predictor main.o predictor.o
 fp_1
 Branches:           1546797
-Incorrect:            14107
-Misprediction Rate:   0.912
+Incorrect:            16682
+Misprediction Rate:   1.078
 fp_2
 Branches:           2422049
-Incorrect:            24454
-Misprediction Rate:   1.010
+Incorrect:            86014
+Misprediction Rate:   3.551
 int_1
 Branches:           3771697
-Incorrect:           389108
-Misprediction Rate:  10.317
+Incorrect:           545289
+Misprediction Rate:  14.457
 int_2
 Branches:           3755315
-Incorrect:            13125
-Misprediction Rate:   0.350
+Incorrect:            17493
+Misprediction Rate:   0.466
 mm_1
 Branches:           3014850
-Incorrect:           109203
-Misprediction Rate:   3.622
+Incorrect:           114418
+Misprediction Rate:   3.795
 mm_2
 Branches:           2563897
-Incorrect:           197937
-Misprediction Rate:   7.720
+Incorrect:           228721
+Misprediction Rate:   8.921

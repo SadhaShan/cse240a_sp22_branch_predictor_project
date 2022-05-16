@@ -1,0 +1,28 @@
+rm -f *.o predictor;
+gcc -g -std=c99 -Werror -c main.c
+gcc -g -std=c99 -Werror -c predictor.c
+gcc -g -std=c99 -Werror -lm -o predictor main.o predictor.o
+fp_1
+Branches:           1546797
+Incorrect:            14194
+Misprediction Rate:   0.918
+fp_2
+Branches:           2422049
+Incorrect:            23526
+Misprediction Rate:   0.971
+int_1
+Branches:           3771697
+Incorrect:           390282
+Misprediction Rate:  10.348
+int_2
+Branches:           3755315
+Incorrect:            13052
+Misprediction Rate:   0.348
+mm_1
+Branches:           3014850
+Incorrect:            90212
+Misprediction Rate:   2.992
+mm_2
+Branches:           2563897
+Incorrect:           242222
+Misprediction Rate:   9.447
