@@ -52,10 +52,10 @@ uint8_t *tournament_bht_lp;
 uint16_t *tournament_lht;
 uint8_t *tournament_ct;
 
-int num_perceptrons = 8;
-int perceptron_table_len = 12;
+int num_perceptrons = 170;
+int perceptron_history_len = 23;
 int perceptron_train_threshold;
-int8_t *perceptron_table;
+int16_t *perceptron_table;
 
 
 
@@ -410,26 +410,36 @@ void train_tournament(uint32_t pc, uint8_t outcome){
 }
 
 ///////////////////////////////////////
+/*
+int num_perceptrons = 170;
+int perceptron_history_len = 23;
+int perceptron_train_threshold;
+int8_t *perceptron_table;
+*/
 
 /////////Perceptron Predictor//////////
 
 void init_perceptron(){
-  int perceptron_table_entries = 1 << perceptron_table_len;
-  perceptron_table = (int8_t*)malloc(num_perceptrons*perceptron_table_entries*sizeof(int8_t));
+  int perceptron_table_entries = num_perceptrons*(perceptron_history_len+1);
+  perceptron_table = (int16_t*)malloc(perceptron_table_entries*sizeof(int16_t));
   int i=0;
-  for(i=0; i < num_perceptrons*perceptron_table_entries; i=i+1){
+  for(i=0; i < perceptron_table_entries; i=i+1){
     perceptron_table[i] = 0;
   }
-  perceptron_train_threshold = 1.93*num_perceptrons + 14;
+  perceptron_train_threshold = (int)(1.93*perceptron_history_len + 14);
   ghistory = 0;
 }
 
 uint8_t perceptron_predict(uint32_t pc){
-  uint32_t perceptron_table_entries = 1 << (perceptron_table_len*num_perceptrons);
-  uint32_t table_index = (pc & (perceptron_table_entries-1)) * num_perceptrons;
-  int y = perceptron_table[table_index];
-  for(int i=1; i<num_perceptrons; i=i+1){
-    y=y+(ghistory & 1<<(i-1))*perceptron_table[table_index+i];
+  uint32_t table_index = (pc % num_perceptrons) * (perceptron_history_len+1);
+  int16_t y = perceptron_table[table_index];
+  uint64_t curr_ghistory = ghistory;
+  for(int i=1; i<=perceptron_history_len; i=i+1){
+    if(curr_ghistory%2 == 0)
+      y -= perceptron_table[table_index+i];
+    else
+      y += perceptron_table[table_index+i];
+    curr_ghistory = curr_ghistory >> 1;
   }
   if(y<0)
     return NOTTAKEN;
@@ -438,11 +448,15 @@ uint8_t perceptron_predict(uint32_t pc){
 }
 
 void train_perceptron(uint32_t pc, uint8_t outcome){
-  uint32_t perceptron_table_entries = 1 << (perceptron_table_len*num_perceptrons);
-  uint32_t table_index = (pc & (perceptron_table_entries-1)) * num_perceptrons;
-  int y = perceptron_table[table_index];
-  for(int i=1; i<num_perceptrons; i=i+1){
-    y=y+(ghistory & 1<<(i-1))*perceptron_table[table_index+i];
+  uint32_t table_index = (pc % num_perceptrons) * (perceptron_history_len+1);
+  int16_t y = perceptron_table[table_index];
+  uint64_t curr_ghistory = ghistory;
+  for(int i=1; i<=perceptron_history_len; i=i+1){
+    if(curr_ghistory%2 == 0)
+      y -= perceptron_table[table_index+i];
+    else
+      y += perceptron_table[table_index+i];
+    curr_ghistory = curr_ghistory >> 1;
   }
   uint8_t bp_result;
   if(y<0)
@@ -452,17 +466,31 @@ void train_perceptron(uint32_t pc, uint8_t outcome){
   
   bool mispredict = true;
   if(bp_result == outcome)
-    false;
-  if(mispredict || abs(bp_result) < perceptron_train_threshold){
-    for(int i=1; i<num_perceptrons; i=i+1){
-      if(outcome == (ghistory & 1<<(i-1)))
-        perceptron_table[table_index+i] += 1;
-      else
-        perceptron_table[table_index+i] -= 1;
+    mispredict = false;
+  if(mispredict || abs(y) <= perceptron_train_threshold){
+    if(outcome == 1){
+      if(abs(perceptron_table[table_index]+1) < perceptron_train_threshold)
+        perceptron_table[table_index] ++;
+    }
+    else{
+      if(abs(perceptron_table[table_index]-1) < perceptron_train_threshold)
+        perceptron_table[table_index] --;
+    }
+    uint64_t curr_ghistory = ghistory;
+    for(int i=1; i<=perceptron_history_len; i=i+1){
+      if(outcome == curr_ghistory%2){
+        if(abs(perceptron_table[table_index+i]+1) < perceptron_train_threshold)
+          perceptron_table[table_index+i] += 1;
+      }
+      else {
+        if(abs(perceptron_table[table_index+i]-1) < perceptron_train_threshold)
+          perceptron_table[table_index+i] -= 1;
+      }
+      curr_ghistory = curr_ghistory >> 1;
     }
   }
   
-  ghistory = (ghistory << 1 | outcome) & ((1 << (num_perceptrons-1))-1) ;
+  ghistory = ((ghistory << 1) | outcome);
 }
 
 ///////////////////////////////////////
@@ -484,6 +512,7 @@ init_predictor()
       init_tournament();
       break;
     case CUSTOM:
+      init_perceptron();
     default:
       break;
   }
@@ -507,6 +536,7 @@ make_prediction(uint32_t pc)
     case TOURNAMENT:
       return tournament_predict(pc);
     case CUSTOM:
+      return perceptron_predict(pc);
     default:
       break;
   }
@@ -531,6 +561,7 @@ train_predictor(uint32_t pc, uint8_t outcome)
     case TOURNAMENT:
       return train_tournament(pc, outcome);
     case CUSTOM:
+      return train_perceptron(pc, outcome);
     default:
       break;
   }
