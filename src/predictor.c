@@ -52,8 +52,8 @@ uint8_t *tournament_bht_lp;
 uint16_t *tournament_lht;
 uint8_t *tournament_ct;
 
-int num_perceptrons = 170;
-int perceptron_history_len = 23;
+int num_perceptrons = 255;
+int perceptron_history_len = 15;
 int perceptron_train_threshold;
 int16_t *perceptron_table;
 
@@ -435,10 +435,10 @@ uint8_t perceptron_predict(uint32_t pc){
   int16_t y = perceptron_table[table_index];
   uint64_t curr_ghistory = ghistory;
   for(int i=1; i<=perceptron_history_len; i=i+1){
-    if(curr_ghistory%2 == 0)
-      y -= perceptron_table[table_index+i];
-    else
+    if(curr_ghistory&1)
       y += perceptron_table[table_index+i];
+    else
+      y -= perceptron_table[table_index+i];
     curr_ghistory = curr_ghistory >> 1;
   }
   if(y<0)
@@ -452,10 +452,10 @@ void train_perceptron(uint32_t pc, uint8_t outcome){
   int16_t y = perceptron_table[table_index];
   uint64_t curr_ghistory = ghistory;
   for(int i=1; i<=perceptron_history_len; i=i+1){
-    if(curr_ghistory%2 == 0)
-      y -= perceptron_table[table_index+i];
-    else
+    if(curr_ghistory&1)
       y += perceptron_table[table_index+i];
+    else
+      y -= perceptron_table[table_index+i];
     curr_ghistory = curr_ghistory >> 1;
   }
   uint8_t bp_result;
@@ -478,7 +478,7 @@ void train_perceptron(uint32_t pc, uint8_t outcome){
     }
     uint64_t curr_ghistory = ghistory;
     for(int i=1; i<=perceptron_history_len; i=i+1){
-      if(outcome == curr_ghistory%2){
+      if(outcome == (curr_ghistory&1)){
         if(abs(perceptron_table[table_index+i]+1) < perceptron_train_threshold)
           perceptron_table[table_index+i] += 1;
       }
@@ -489,6 +489,8 @@ void train_perceptron(uint32_t pc, uint8_t outcome){
       curr_ghistory = curr_ghistory >> 1;
     }
   }
+  //if(abs(y)>perceptron_train_threshold)
+  //  printf("Output threshold crossed! %x %d %d \n",pc,y,perceptron_train_threshold);
   
   ghistory = ((ghistory << 1) | outcome);
 }
